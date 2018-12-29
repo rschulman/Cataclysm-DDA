@@ -17,6 +17,8 @@ class main_menu
         main_menu() : ctxt( "MAIN_MENU" ) { }
         // Shows the main menu and returns whether a game was started or not
         bool opening_screen();
+        bool em_opening_screen_init();
+        bool em_opening_screen();
 
     private:
         // ASCII art that says "Cataclysm Dark Days Ahead"

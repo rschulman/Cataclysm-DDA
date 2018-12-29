@@ -213,6 +213,10 @@ ifdef CLANG
     CXX = $(CROSS)$(CLANGCMD)
     LD  = $(CROSS)$(CLANGCMD)
   endif
+# Use emcc if EMSCRIPTEN is set
+else ifdef EMSCRIPTEN
+  CXX = emcc
+  LD  = emcc
 else
   # Compiler version & target machine - used later for MXE ICE workaround
   ifdef CROSS
@@ -235,7 +239,12 @@ endif
 
 STRIP = $(CROSS)strip
 RC  = $(CROSS)windres
-AR  = $(CROSS)ar
+# Emscripten requires using llvm-ar, not ar
+ifdef EMSCRIPTEN
+  AR  = llvm-ar
+else
+  AR  = $(CROSS)ar
+endif
 
 # We don't need scientific precision for our math functions, this lets them run much faster.
 CXXFLAGS += -ffast-math
@@ -361,6 +370,12 @@ else
       LDFLAGS += -fuse-ld=gold
     endif
   endif
+endif
+
+#Emscripten
+
+ifdef EMSCRIPTEN
+  CXXFLAGS += -g4 -s USE_SDL=2 -s DISABLE_EXCEPTION_CATCHING=2 -s DEMANGLE_SUPPORT=1 -s ALLOW_MEMORY_GROWTH=1
 endif
 
 # OSX

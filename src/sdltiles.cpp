@@ -457,7 +457,11 @@ void WinCreate()
         if( get_option<bool>( "FRAMEBUFFER_ACCEL" ) ) {
             SDL_SetHint( SDL_HINT_FRAMEBUFFER_ACCELERATION, "1" );
         }
+#ifdef __EMSCRIPTEN__
+        renderer.reset( SDL_CreateRenderer( ::window.get(), -1, SDL_RENDERER_SOFTWARE | SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_TARGETTEXTURE ) );
+#else
         renderer.reset( SDL_CreateRenderer( ::window.get(), -1, SDL_RENDERER_SOFTWARE | SDL_RENDERER_TARGETTEXTURE ) );
+#endif
         throwErrorIf( !renderer, "Failed to initialize software renderer" );
         throwErrorIf( !SetupRenderTarget(), "Failed to initialize display buffer under software rendering, unable to continue." );
     }

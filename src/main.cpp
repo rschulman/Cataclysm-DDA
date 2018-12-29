@@ -38,6 +38,9 @@
 #      include <SDL_version.h>
 #   endif
 #endif
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 #ifdef __ANDROID__
 #include <SDL_system.h>
@@ -115,6 +118,28 @@ struct arg_handler {
 void printHelpMessage( const arg_handler *first_pass_arguments, size_t num_first_pass_arguments,
                        const arg_handler *second_pass_arguments, size_t num_second_pass_arguments );
 }  // namespace
+
+#ifdef __EMSCRIPTEN__
+void one_loop() {
+    static bool playing = false;
+    static bool menu_init = false;
+    static main_menu menu;
+    if( !playing ) {
+
+        if( menu.em_opening_screen_init() ) {
+            menu_init = true;
+        } else {
+            printf("Could not initialize main menu.\n");
+        }
+
+        if( menu_init ) {
+            playing = menu.em_opening_screen();
+        }
+    } else {
+        g->do_turn();
+    }
+}
+#endif
 
 #if defined USE_WINMAIN
 int APIENTRY WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow )
@@ -656,7 +681,9 @@ int main( int argc, char *argv[] )
         set_language();
     }
 #endif
-
+#ifdef __EMSCRIPTEN__
+    emscripten_set_main_loop( one_loop, 0, 1 );
+#else
     while( true ) {
         if( !world.empty() ) {
             if( !g->load( world ) ) {
@@ -670,13 +697,16 @@ int main( int argc, char *argv[] )
                 break;
             }
         }
-
         while( !g->do_turn() );
     }
+#endif
 
     exit_handler( -999 );
     return 0;
 }
+
+
+    
 
 namespace
 {
