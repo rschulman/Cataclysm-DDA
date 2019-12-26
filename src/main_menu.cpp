@@ -682,214 +682,214 @@ bool main_menu::em_opening_screen() {
 
     print_menu( w_open, sel1, iMenuOffsetX, iMenuOffsetY );
 
-        if( layer == 1 ) {
-            if( sel1 == 0 ) { // Print MOTD.
-                display_text( mmenu_motd, "MOTD", sel_line );
+    if( layer == 1 ) {
+        if( sel1 == 0 ) { // Print MOTD.
+            display_text( mmenu_motd, "MOTD", sel_line );
 
-            } else if( sel1 == 7 ) { // Print Credits.
-                display_text( mmenu_credits, "Credits", sel_line );
+        } else if( sel1 == 7 ) { // Print Credits.
+            display_text( mmenu_credits, "Credits", sel_line );
+        }
+
+        static std::string action = handle_input_timeout( ctxt );
+
+        std::string sInput = ctxt.get_raw_input().text;
+        // check automatic menu shortcuts
+        for( size_t i = 0; i < vMenuHotkeys.size(); ++i ) {
+            for( const std::string &hotkey : vMenuHotkeys[i] ) {
+                if( sInput == hotkey ) {
+                    sel1 = i;
+                    action = "CONFIRM";
+                }
+            }
+        }
+        // also check special keys
+        if( action == "QUIT" ) {
+            if( query_yn( _( "Really quit?" ) ) ) {
+                sel1 = 8;
+                action = "CONFIRM";
+            }
+        } else if( action == "LEFT" ) {
+            sel_line = 0;
+            if( sel1 > 0 ) {
+                sel1--;
+            } else {
+                sel1 = 8;
+            }
+            on_move();
+        } else if( action == "RIGHT" ) {
+            sel_line = 0;
+            if( sel1 < 8 ) {
+                sel1++;
+            } else {
+                sel1 = 0;
+            }
+            on_move();
+        }
+
+        if( ( sel1 == 0 || sel1 == 7 ) && ( action == "UP" || action == "DOWN" ||
+                                            action == "PAGE_UP" || action == "PAGE_DOWN" ) ) {
+            if( action == "UP" || action == "PAGE_UP" ) {
+                sel_line--;
+            } else if( action == "DOWN" || action == "PAGE_DOWN" ) {
+                sel_line++;
             }
 
-            static std::string action = handle_input_timeout( ctxt );
+        }
+        if( ( action == "UP" || action == "CONFIRM" ) && sel1 != 0 && sel1 != 7 ) {
+            if( sel1 == 6 ) {
+                get_help().display_help();
+            } else if( sel1 == 8 ) {
+                return false;
+            } else {
+                sel2 = 0;
+                layer = 2;
+                print_menu( w_open, sel1, iMenuOffsetX, iMenuOffsetY );
 
+                switch( sel1 ) {
+                    case 1:
+                        start = new_character_tab();
+                        break;
+                    case 2:
+                        start = load_character_tab();
+                        break;
+                    case 3:
+                        world_tab();
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+    } else if( layer == 2 ) {
+        if( sel1 == 4 ) { // Special game
+            if( MAP_SHARING::isSharing() ) { // Thee can't save special games, therefore thee can't share them
+                layer = 1;
+                popup( _( "Special games don't work with shared maps." ) );
+                return false;
+            }
+
+            std::vector<std::string> special_names;
+            int xoffset = 32 + iMenuOffsetX  + extra_w / 2;
+            int yoffset = iMenuOffsetY - 2;
+            int xlen = 0;
+            for( int i = 1; i < NUM_SPECIAL_GAMES; i++ ) {
+                std::string spec_name = special_game_name( special_game_id( i ) );
+                special_names.push_back( spec_name );
+                xlen += spec_name.size() + 2;
+            }
+            xlen += special_names.size() - 1;
+            print_menu_items( w_open, special_names, sel2, yoffset, xoffset - ( xlen / 4 ) );
+
+            wrefresh( w_open );
+            catacurses::refresh();
+            std::string action = handle_input_timeout( ctxt );
+            if( action == "LEFT" ) {
+                if( sel2 > 0 ) {
+                    sel2--;
+                } else {
+                    sel2 = NUM_SPECIAL_GAMES - 2;
+                }
+                on_move();
+            } else if( action == "RIGHT" ) {
+                if( sel2 < NUM_SPECIAL_GAMES - 2 ) {
+                    sel2++;
+                } else {
+                    sel2 = 0;
+                }
+                on_move();
+            } else if( action == "DOWN" || action == "QUIT" ) {
+                layer = 1;
+            }
+            if( action == "UP" || action == "CONFIRM" ) {
+                if( sel2 >= 0 && sel2 < NUM_SPECIAL_GAMES - 1 ) {
+                    g->gamemode = get_special_game( special_game_id( sel2 + 1 ) );
+                    // check world
+                    WORLDPTR world = world_generator->make_new_world( special_game_id( sel2 + 1 ) );
+                    if( world == nullptr ) {
+                        return false;
+                    }
+                    world_generator->set_active_world( world );
+                    try {
+                        g->setup();
+                    } catch( const std::exception &err ) {
+                        debugmsg( "Error: %s", err.what() );
+                        g->gamemode.reset();
+                        g->u = player();
+                        return false;
+                    }
+                    if( !g->gamemode->init() ) {
+                        g->gamemode.reset();
+                        g->u = player();
+                        return false;
+                    }
+                    start = true;
+                }
+            }
+        } else if( sel1 == 5 ) {  // Settings Menu
+            int settings_subs_to_display = vSettingsSubItems.size();
+            std::vector<std::string> settings_subs;
+            int xoffset = 46 + iMenuOffsetX + extra_w / 2;
+            int yoffset = iMenuOffsetY - 2;
+            int xlen = 0;
+            for( int i = 0; i < settings_subs_to_display; ++i ) {
+                settings_subs.push_back( vSettingsSubItems[i] );
+                xlen += vSettingsSubItems[i].size() + 2; // Open and close brackets added
+            }
+            xlen += settings_subs.size() - 1;
+            if( settings_subs.size() > 1 ) {
+                xoffset -= 6;
+            }
+            print_menu_items( w_open, settings_subs, sel2, yoffset, xoffset - ( xlen / 4 ) );
+            wrefresh( w_open );
+            catacurses::refresh();
+            std::string action = handle_input_timeout( ctxt );
             std::string sInput = ctxt.get_raw_input().text;
-            // check automatic menu shortcuts
-            for( size_t i = 0; i < vMenuHotkeys.size(); ++i ) {
-                for( const std::string &hotkey : vMenuHotkeys[i] ) {
+            for( int i = 0; i < settings_subs_to_display; ++i ) {
+                for( const std::string &hotkey : vSettingsHotkeys[i] ) {
                     if( sInput == hotkey ) {
-                        sel1 = i;
+                        sel2 = i;
                         action = "CONFIRM";
                     }
                 }
             }
-            // also check special keys
-            if( action == "QUIT" ) {
-                if( query_yn( _( "Really quit?" ) ) ) {
-                    sel1 = 8;
-                    action = "CONFIRM";
-                }
-            } else if( action == "LEFT" ) {
-                sel_line = 0;
-                if( sel1 > 0 ) {
-                    sel1--;
+
+            if( action == "LEFT" ) {
+                if( sel2 > 0 ) {
+                    --sel2;
                 } else {
-                    sel1 = 8;
+                    sel2 = settings_subs_to_display - 1;
                 }
                 on_move();
             } else if( action == "RIGHT" ) {
-                sel_line = 0;
-                if( sel1 < 8 ) {
-                    sel1++;
-                } else {
-                    sel1 = 0;
-                }
-                on_move();
-            }
-
-            if( ( sel1 == 0 || sel1 == 7 ) && ( action == "UP" || action == "DOWN" ||
-                                                action == "PAGE_UP" || action == "PAGE_DOWN" ) ) {
-                if( action == "UP" || action == "PAGE_UP" ) {
-                    sel_line--;
-                } else if( action == "DOWN" || action == "PAGE_DOWN" ) {
-                    sel_line++;
-                }
-
-            }
-            if( ( action == "UP" || action == "CONFIRM" ) && sel1 != 0 && sel1 != 7 ) {
-                if( sel1 == 6 ) {
-                    get_help().display_help();
-                } else if( sel1 == 8 ) {
-                    return false;
+                if( sel2 < settings_subs_to_display - 1 ) {
+                    ++sel2;
                 } else {
                     sel2 = 0;
-                    layer = 2;
-                    print_menu( w_open, sel1, iMenuOffsetX, iMenuOffsetY );
-
-                    switch( sel1 ) {
-                        case 1:
-                            start = new_character_tab();
-                            break;
-                        case 2:
-                            start = load_character_tab();
-                            break;
-                        case 3:
-                            world_tab();
-                            break;
-                        default:
-                            break;
-                    }
                 }
+                on_move();
+            } else if( action == "DOWN" || action == "QUIT" ) {
+                layer = 1;
             }
-        } else if( layer == 2 ) {
-            if( sel1 == 4 ) { // Special game
-                if( MAP_SHARING::isSharing() ) { // Thee can't save special games, therefore thee can't share them
-                    layer = 1;
-                    popup( _( "Special games don't work with shared maps." ) );
-                    return false;
-                }
 
-                std::vector<std::string> special_names;
-                int xoffset = 32 + iMenuOffsetX  + extra_w / 2;
-                int yoffset = iMenuOffsetY - 2;
-                int xlen = 0;
-                for( int i = 1; i < NUM_SPECIAL_GAMES; i++ ) {
-                    std::string spec_name = special_game_name( special_game_id( i ) );
-                    special_names.push_back( spec_name );
-                    xlen += spec_name.size() + 2;
-                }
-                xlen += special_names.size() - 1;
-                print_menu_items( w_open, special_names, sel2, yoffset, xoffset - ( xlen / 4 ) );
-
-                wrefresh( w_open );
-                catacurses::refresh();
-                std::string action = handle_input_timeout( ctxt );
-                if( action == "LEFT" ) {
-                    if( sel2 > 0 ) {
-                        sel2--;
-                    } else {
-                        sel2 = NUM_SPECIAL_GAMES - 2;
-                    }
-                    on_move();
-                } else if( action == "RIGHT" ) {
-                    if( sel2 < NUM_SPECIAL_GAMES - 2 ) {
-                        sel2++;
-                    } else {
-                        sel2 = 0;
-                    }
-                    on_move();
-                } else if( action == "DOWN" || action == "QUIT" ) {
-                    layer = 1;
-                }
-                if( action == "UP" || action == "CONFIRM" ) {
-                    if( sel2 >= 0 && sel2 < NUM_SPECIAL_GAMES - 1 ) {
-                        g->gamemode = get_special_game( special_game_id( sel2 + 1 ) );
-                        // check world
-                        WORLDPTR world = world_generator->make_new_world( special_game_id( sel2 + 1 ) );
-                        if( world == nullptr ) {
-                            return false;
-                        }
-                        world_generator->set_active_world( world );
-                        try {
-                            g->setup();
-                        } catch( const std::exception &err ) {
-                            debugmsg( "Error: %s", err.what() );
-                            g->gamemode.reset();
-                            g->u = player();
-                            return false;
-                        }
-                        if( !g->gamemode->init() ) {
-                            g->gamemode.reset();
-                            g->u = player();
-                            return false;
-                        }
-                        start = true;
-                    }
-                }
-            } else if( sel1 == 5 ) {  // Settings Menu
-                int settings_subs_to_display = vSettingsSubItems.size();
-                std::vector<std::string> settings_subs;
-                int xoffset = 46 + iMenuOffsetX + extra_w / 2;
-                int yoffset = iMenuOffsetY - 2;
-                int xlen = 0;
-                for( int i = 0; i < settings_subs_to_display; ++i ) {
-                    settings_subs.push_back( vSettingsSubItems[i] );
-                    xlen += vSettingsSubItems[i].size() + 2; // Open and close brackets added
-                }
-                xlen += settings_subs.size() - 1;
-                if( settings_subs.size() > 1 ) {
-                    xoffset -= 6;
-                }
-                print_menu_items( w_open, settings_subs, sel2, yoffset, xoffset - ( xlen / 4 ) );
-                wrefresh( w_open );
-                catacurses::refresh();
-                std::string action = handle_input_timeout( ctxt );
-                std::string sInput = ctxt.get_raw_input().text;
-                for( int i = 0; i < settings_subs_to_display; ++i ) {
-                    for( const std::string &hotkey : vSettingsHotkeys[i] ) {
-                        if( sInput == hotkey ) {
-                            sel2 = i;
-                            action = "CONFIRM";
-                        }
-                    }
-                }
-
-                if( action == "LEFT" ) {
-                    if( sel2 > 0 ) {
-                        --sel2;
-                    } else {
-                        sel2 = settings_subs_to_display - 1;
-                    }
-                    on_move();
-                } else if( action == "RIGHT" ) {
-                    if( sel2 < settings_subs_to_display - 1 ) {
-                        ++sel2;
-                    } else {
-                        sel2 = 0;
-                    }
-                    on_move();
-                } else if( action == "DOWN" || action == "QUIT" ) {
-                    layer = 1;
-                }
-
-                if( action == "UP" || action == "CONFIRM" ) {
-                    if( sel2 == 0 ) {
-                        get_options().show( true );
-                        // The language may have changed- gracefully handle this.
-                        init_strings();
-                        print_menu( w_open, sel1, iMenuOffsetX, iMenuOffsetY );
-                    } else if( sel2 == 1 ) {
-                        input_context ctxt_default = get_default_mode_input_context();
-                        ctxt_default.display_menu();
-                    } else if( sel2 == 2 ) {
-                        get_auto_pickup().show();
-                    } else if( sel2 == 3 ) {
-                        get_safemode().show();
-                    } else if( sel2 == 4 ) {
-                        all_colors.show_gui();
-                    }
+            if( action == "UP" || action == "CONFIRM" ) {
+                if( sel2 == 0 ) {
+                    get_options().show( true );
+                    // The language may have changed- gracefully handle this.
+                    init_strings();
+                    print_menu( w_open, sel1, iMenuOffsetX, iMenuOffsetY );
+                } else if( sel2 == 1 ) {
+                    input_context ctxt_default = get_default_mode_input_context();
+                    ctxt_default.display_menu();
+                } else if( sel2 == 2 ) {
+                    get_auto_pickup().show();
+                } else if( sel2 == 3 ) {
+                    get_safemode().show();
+                } else if( sel2 == 4 ) {
+                    all_colors.show_gui();
                 }
             }
         }
+    }
     return start;
 }
 

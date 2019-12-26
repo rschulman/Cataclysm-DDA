@@ -126,8 +126,8 @@ void one_loop() {
     static main_menu menu;
     if( !playing ) {
 
-        if( menu.em_opening_screen_init() ) {
-            menu_init = true;
+        if( !menu_init ) {
+            menu_init = menu.em_opening_screen_init();
         } else {
             printf("Could not initialize main menu.\n");
         }
